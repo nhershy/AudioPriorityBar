@@ -124,7 +124,9 @@ struct DraggableDeviceRow: View {
     }
 
     var statusIcon: String? {
-        if isDisconnected {
+        if isHiddenSection {
+            return nil
+        } else if isDisconnected {
             return "wifi.slash"
         } else if isIgnored && audioManager.isEditMode {
             return "eye.slash"
@@ -160,7 +162,12 @@ struct DraggableDeviceRow: View {
     var body: some View {
         HStack(spacing: 8) {
             // Drag handle + priority label area
-            if !isHiddenSection {
+            if isHiddenSection {
+                Image(systemName: "eye.slash")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .frame(width: 36)
+            } else {
                 ZStack {
                     // Drag handle icon
                     Image(systemName: "line.3.horizontal")
@@ -198,19 +205,6 @@ struct DraggableDeviceRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .foregroundColor(isGrayed || isNeverUse ? .secondary : .primary)
-                    .onHover { hovering in
-                        nameHoverTask?.cancel()
-                        if hovering {
-                            nameHoverTask = Task {
-                                try? await Task.sleep(nanoseconds: 500_000_000)
-                                if !Task.isCancelled {
-                                    showNamePopover = true
-                                }
-                            }
-                        } else {
-                            showNamePopover = false
-                        }
-                    }
                     .popover(isPresented: $showNamePopover, arrowEdge: .bottom) {
                         Text(device.name)
                             .font(.system(size: 13, weight: .medium))
@@ -343,7 +337,7 @@ struct DraggableDeviceRow: View {
         .padding(.leading, 8)
         .padding(.trailing, 10)
         .padding(.vertical, 2)
-        .opacity(isDragging ? 0.5 : (isGrayed ? 0.6 : 1.0))
+        .opacity(isDragging ? 0.5 : (isHiddenSection ? 0.4 : (isGrayed ? 0.6 : 1.0)))
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(isSelected && !isDisconnected ? Color.accentColor.opacity(0.12) : (isHovering ? Color.primary.opacity(0.06) : Color.clear))
@@ -371,6 +365,17 @@ struct DraggableDeviceRow: View {
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.12)) {
                 isHovering = hovering
+            }
+            nameHoverTask?.cancel()
+            if hovering {
+                nameHoverTask = Task {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    if !Task.isCancelled {
+                        showNamePopover = true
+                    }
+                }
+            } else {
+                showNamePopover = false
             }
         }
         // Highlight the dragged row with a border instead of moving it

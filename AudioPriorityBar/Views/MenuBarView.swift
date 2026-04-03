@@ -38,7 +38,8 @@ struct MenuBarView: View {
                         onUnhide: { audioManager.unhideDevice($0, category: .speaker) },
                         category: .speaker,
                         showCategoryPicker: true,
-                        isActiveCategory: audioManager.currentMode == .speaker || audioManager.isCustomMode
+                        isActiveCategory: audioManager.currentMode == .speaker || audioManager.isCustomMode,
+                        hiddenDevices: audioManager.isEditMode ? audioManager.hiddenSpeakerDevices : []
                     )
                 }
 
@@ -60,7 +61,8 @@ struct MenuBarView: View {
                         onUnhide: { audioManager.unhideDevice($0, category: .headphone) },
                         category: .headphone,
                         showCategoryPicker: true,
-                        isActiveCategory: audioManager.currentMode == .headphone || audioManager.isCustomMode
+                        isActiveCategory: audioManager.currentMode == .headphone || audioManager.isCustomMode,
+                        hiddenDevices: audioManager.isEditMode ? audioManager.hiddenHeadphoneDevices : []
                     )
                 }
 
@@ -75,7 +77,8 @@ struct MenuBarView: View {
                     onHide: { audioManager.hideDevice($0, category: nil) },
                     onUnhide: { audioManager.unhideDevice($0, category: nil) },
                     category: nil,
-                    showCategoryPicker: false
+                    showCategoryPicker: false,
+                    hiddenDevices: audioManager.isEditMode ? audioManager.hiddenInputDevices : []
                 )
             }
             .padding(.horizontal, 16)
@@ -89,14 +92,8 @@ struct MenuBarView: View {
                 // Info button
                 InfoButton()
 
-                // Hidden devices toggle (only in normal mode)
-                if !audioManager.isEditMode {
-                    HiddenDevicesToggleView()
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                }
-
                 Spacer()
-                
+
                 // Launch at login toggle
                 LaunchAtLoginToggle()
 
@@ -320,6 +317,7 @@ struct DeviceSectionView: View {
     var category: OutputCategory?
     var showCategoryPicker: Bool = false
     var isActiveCategory: Bool = true
+    var hiddenDevices: [AudioDevice] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -334,7 +332,7 @@ struct DeviceSectionView: View {
                     .tracking(0.5)
             }
 
-            if devices.isEmpty {
+            if devices.isEmpty && hiddenDevices.isEmpty {
                 Text("No devices")
                     .font(.system(size: 13))
                     .foregroundColor(.secondary.opacity(0.7))
@@ -342,118 +340,32 @@ struct DeviceSectionView: View {
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                DeviceListView(
-                    devices: devices,
-                    currentDeviceId: currentDeviceId,
-                    onMove: onMove,
-                    onSelect: onSelect,
-                    showCategoryPicker: showCategoryPicker,
-                    onHide: onHide,
-                    onUnhide: onUnhide,
-                    category: category
-                )
-            }
-        }
-    }
-}
-
-struct HiddenDevicesToggleView: View {
-    @EnvironmentObject var audioManager: AudioManager
-    @State private var isExpanded = false
-
-    var allHiddenDevices: [AudioDevice] {
-        audioManager.hiddenInputDevices +
-        audioManager.hiddenSpeakerDevices +
-        audioManager.hiddenHeadphoneDevices
-    }
-
-    var body: some View {
-        if allHiddenDevices.isEmpty {
-            Text("")
-                .frame(height: 1)
-        } else {
-            Button {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    isExpanded.toggle()
+                if !devices.isEmpty {
+                    DeviceListView(
+                        devices: devices,
+                        currentDeviceId: currentDeviceId,
+                        onMove: onMove,
+                        onSelect: onSelect,
+                        showCategoryPicker: showCategoryPicker,
+                        onHide: onHide,
+                        onUnhide: onUnhide,
+                        category: category
+                    )
                 }
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    Image(systemName: "eye.slash")
-                        .font(.system(size: 11))
-                    Text("\(allHiddenDevices.count) ignored")
-                        .font(.system(size: 12))
+
+                if !hiddenDevices.isEmpty {
+                    DeviceListView(
+                        devices: hiddenDevices,
+                        currentDeviceId: nil,
+                        onMove: { _, _ in },
+                        onSelect: { _ in },
+                        showCategoryPicker: showCategoryPicker,
+                        onHide: onHide,
+                        onUnhide: onUnhide,
+                        isHiddenSection: true,
+                        category: category
+                    )
                 }
-                .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-            .popover(isPresented: $isExpanded, arrowEdge: .bottom) {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(allHiddenDevices, id: \.id) { device in
-                        HiddenDeviceRow(device: device)
-                    }
-                }
-                .padding(12)
-                .frame(minWidth: 220)
-            }
-        }
-    }
-}
-
-struct HiddenDeviceRow: View {
-    @EnvironmentObject var audioManager: AudioManager
-    let device: AudioDevice
-    @State private var isHovering = false
-
-    var deviceIcon: String {
-        if device.type == .input {
-            return "mic.fill"
-        } else {
-            let category = audioManager.priorityManager.getCategory(for: device)
-            return category == .headphone ? "headphones" : "speaker.wave.2.fill"
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: deviceIcon)
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .frame(width: 18)
-
-            Text(device.name)
-                .font(.system(size: 13))
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-
-            Spacer()
-
-            if isHovering {
-                Button {
-                    audioManager.unhideDevice(device)
-                } label: {
-                    Image(systemName: "eye")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Stop ignoring")
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(isHovering ? Color.primary.opacity(0.06) : Color.clear)
-        )
-        .animation(.easeInOut(duration: 0.15), value: isHovering)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovering = hovering
             }
         }
     }

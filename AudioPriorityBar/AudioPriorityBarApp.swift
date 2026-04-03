@@ -214,14 +214,20 @@ class AudioManager: ObservableObject {
                     allOutputs.append(.disconnected(uid: stored.uid, name: stored.name, type: .output))
                 }
             }
-            inputDevices = priorityManager.sortByPriority(allInputs, type: .input)
-            hiddenInputDevices = []
+            let visibleInputs = allInputs.filter { !priorityManager.isHidden($0) && !priorityManager.isNeverUse($0) }
+            let hiddenInputs = allInputs.filter { priorityManager.isHidden($0) || priorityManager.isNeverUse($0) }
+            inputDevices = priorityManager.sortByPriority(visibleInputs, type: .input)
+            hiddenInputDevices = hiddenInputs
             let speakers = allOutputs.filter { priorityManager.getCategory(for: $0) == .speaker }
             let headphones = allOutputs.filter { priorityManager.getCategory(for: $0) == .headphone }
-            speakerDevices = priorityManager.sortByPriority(speakers, category: .speaker)
-            headphoneDevices = priorityManager.sortByPriority(headphones, category: .headphone)
-            hiddenSpeakerDevices = []
-            hiddenHeadphoneDevices = []
+            let visibleSpeakers = speakers.filter { !priorityManager.isHidden($0, inCategory: .speaker) && !priorityManager.isNeverUse($0) }
+            let visibleHeadphones = headphones.filter { !priorityManager.isHidden($0, inCategory: .headphone) && !priorityManager.isNeverUse($0) }
+            let hiddenSpeakers = speakers.filter { priorityManager.isHidden($0, inCategory: .speaker) || priorityManager.isNeverUse($0) }
+            let hiddenHeads = headphones.filter { priorityManager.isHidden($0, inCategory: .headphone) || priorityManager.isNeverUse($0) }
+            speakerDevices = priorityManager.sortByPriority(visibleSpeakers, category: .speaker)
+            headphoneDevices = priorityManager.sortByPriority(visibleHeadphones, category: .headphone)
+            hiddenSpeakerDevices = hiddenSpeakers
+            hiddenHeadphoneDevices = hiddenHeads
         } else {
             // Filter out hidden and never-use devices in normal mode
             let visibleInputs = connectedInputs.filter { !priorityManager.isHidden($0) && !priorityManager.isNeverUse($0) }
