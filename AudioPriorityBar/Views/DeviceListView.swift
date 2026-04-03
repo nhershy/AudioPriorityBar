@@ -104,6 +104,8 @@ struct DraggableDeviceRow: View {
     
     @State private var isHovering = false
     @State private var lastReportedTarget: Int? = nil
+    @State private var showNamePopover = false
+    @State private var nameHoverTask: Task<Void, Never>? = nil
 
     var isDisconnected: Bool {
         !device.isConnected
@@ -196,7 +198,26 @@ struct DraggableDeviceRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .foregroundColor(isGrayed || isNeverUse ? .secondary : .primary)
-                    .help(device.name)
+                    .onHover { hovering in
+                        nameHoverTask?.cancel()
+                        if hovering {
+                            nameHoverTask = Task {
+                                try? await Task.sleep(nanoseconds: 500_000_000)
+                                if !Task.isCancelled {
+                                    showNamePopover = true
+                                }
+                            }
+                        } else {
+                            showNamePopover = false
+                        }
+                    }
+                    .popover(isPresented: $showNamePopover, arrowEdge: .bottom) {
+                        Text(device.name)
+                            .font(.system(size: 13, weight: .medium))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .fixedSize()
+                    }
 
                 if let icon = statusIcon {
                     Image(systemName: icon)
