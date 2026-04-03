@@ -127,7 +127,7 @@ struct MenuBarView: View {
                         Text("Quit")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(.red)
+                    .foregroundColor(.red.opacity(0.6))
                 }
                 .buttonStyle(.plain)
             }
