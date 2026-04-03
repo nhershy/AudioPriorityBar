@@ -86,6 +86,9 @@ struct MenuBarView: View {
 
             // Footer
             HStack(spacing: 16) {
+                // Info button
+                InfoButton()
+
                 // Hidden devices toggle (only in normal mode)
                 if !audioManager.isEditMode {
                     HiddenDevicesToggleView()
@@ -175,14 +178,20 @@ struct ModeToggleView: View {
                     audioManager.setCustomMode(!audioManager.isCustomMode)
                 }
             } label: {
-                Image(systemName: "hand.raised.fill")
-                    .font(.system(size: 12))
+                HStack(spacing: 5) {
+                    Image(systemName: "hand.raised.fill")
+                        .font(.system(size: 11))
+                    Text("Manual")
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .contentShape(Rectangle())
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(audioManager.isCustomMode ? Color.orange : Color.clear)
+                            .fill(audioManager.isCustomMode ? Color.accentColor : Color.clear)
                     )
                     .foregroundColor(audioManager.isCustomMode ? .white : .secondary)
             }
@@ -456,5 +465,58 @@ struct LaunchAtLoginToggle: View {
         }
         .buttonStyle(.plain)
         .help(launchManager.isEnabled ? "Disable launch at login" : "Enable launch at login")
+    }
+}
+
+struct InfoButton: View {
+    @State private var showInfo = false
+
+    var body: some View {
+        Button {
+            showInfo.toggle()
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 14))
+                .foregroundColor(.secondary.opacity(0.6))
+        }
+        .buttonStyle(.plain)
+        .help("How to use")
+        .popover(isPresented: $showInfo, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Audio Priority Bar")
+                    .font(.system(size: 14, weight: .bold))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    InfoRow(icon: "arrow.up.arrow.down", text: "Drag devices or use the arrows to set priority order. The top connected device is used automatically.")
+                    InfoRow(icon: "speaker.wave.2.fill", text: "Speaker mode auto-switches between speaker devices.")
+                    InfoRow(icon: "headphones", text: "Headphone mode auto-switches between headphone devices. Connecting headphones switches to this mode automatically.")
+                    InfoRow(icon: "text.badge.star", text: "Manual mode disables auto-switching so you can pick any device yourself.")
+                    InfoRow(icon: "pencil.circle", text: "Edit mode shows all known devices including disconnected ones, so you can reorder priorities.")
+                    InfoRow(icon: "ellipsis.circle", text: "Hover over a device and click ••• to move it between categories, ignore it, or mark it as \"Never Use\".")
+                    InfoRow(icon: "nosign", text: "\"Never Use\" keeps a device visible but excludes it from auto-selection.")
+                }
+            }
+            .padding(16)
+            .frame(width: 300)
+        }
+    }
+}
+
+struct InfoRow: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundColor(.accentColor)
+                .frame(width: 16, alignment: .center)
+                .padding(.top, 2)
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
