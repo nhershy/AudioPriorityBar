@@ -240,11 +240,37 @@ class PriorityManager {
     }
 
     private func sortDevices(_ devices: [AudioDevice], usingKey key: String) -> [AudioDevice] {
-        let priorities = defaults.array(forKey: key) as? [String] ?? []
+        var priorities = defaults.array(forKey: key) as? [String] ?? []
+        var didMigrate = false
+
+        // Resolve each device's priority index, migrating stale UIDs by name match
+        var indexCache: [String: Int] = [:]
+        for device in devices {
+            if let index = priorities.firstIndex(of: device.uid) {
+                indexCache[device.uid] = index
+            } else {
+                // UID not found — try matching by name against known devices with stale UIDs
+                let known = getKnownDevices()
+                for stored in known where stored.name == device.name && stored.uid != device.uid {
+                    if let index = priorities.firstIndex(of: stored.uid) {
+                        NSLog("[AudioPriorityBar] UID migrated for '%@': '%@' → '%@'", device.name, stored.uid, device.uid)
+                        priorities[index] = device.uid
+                        migrateUID(from: stored.uid, to: device.uid)
+                        indexCache[device.uid] = index
+                        didMigrate = true
+                        break
+                    }
+                }
+            }
+        }
+
+        if didMigrate {
+            defaults.set(priorities, forKey: key)
+        }
 
         return devices.sorted { a, b in
-            let indexA = priorities.firstIndex(of: a.uid) ?? Int.max
-            let indexB = priorities.firstIndex(of: b.uid) ?? Int.max
+            let indexA = indexCache[a.uid] ?? Int.max
+            let indexB = indexCache[b.uid] ?? Int.max
             return indexA < indexB
         }
     }
@@ -252,5 +278,41 @@ class PriorityManager {
     private func savePriorities(_ devices: [AudioDevice], key: String) {
         let uids = devices.map { $0.uid }
         defaults.set(uids, forKey: key)
+    }
+
+    /// Migrates a stale device UID to a new one across all UID-keyed UserDefaults stores.
+    private func migrateUID(from oldUID: String, to newUID: String) {
+        // Migrate known devices
+        var known = getKnownDevices()
+        if let index = known.firstIndex(where: { $0.uid == oldUID }) {
+            let old = known[index]
+            known[index] = StoredDevice(uid: newUID, name: old.name, isInput: old.isInput, lastSeen: old.lastSeen)
+            saveKnownDevices(known)
+        }
+
+        // Migrate device categories
+        var categories = defaults.dictionary(forKey: deviceCategoriesKey) as? [String: String] ?? [:]
+        if let value = categories.removeValue(forKey: oldUID) {
+            categories[newUID] = value
+            defaults.set(categories, forKey: deviceCategoriesKey)
+        }
+
+        // Migrate hidden/never-use lists
+        for key in [hiddenMicsKey, hiddenSpeakersKey, hiddenHeadphonesKey, neverUseKey] {
+            var list = defaults.array(forKey: key) as? [String] ?? []
+            if let index = list.firstIndex(of: oldUID) {
+                list[index] = newUID
+                defaults.set(list, forKey: key)
+            }
+        }
+
+        // Migrate all priority lists (other than the one already handled by the caller)
+        for key in [inputPrioritiesKey, speakerPrioritiesKey, headphonePrioritiesKey] {
+            var list = defaults.array(forKey: key) as? [String] ?? []
+            if let index = list.firstIndex(of: oldUID) {
+                list[index] = newUID
+                defaults.set(list, forKey: key)
+            }
+        }
     }
 }
