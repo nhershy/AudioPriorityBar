@@ -92,10 +92,10 @@ struct MenuBarView: View {
                 // Info button
                 InfoButton()
 
-                Spacer()
-
                 // Launch at login toggle
                 LaunchAtLoginToggle()
+
+                Spacer()
 
                 // Edit mode toggle
                 Button {
@@ -124,7 +124,7 @@ struct MenuBarView: View {
                         Text("Quit")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(.red.opacity(0.6))
+                    .foregroundColor(.red.opacity(0.75))
                 }
                 .buttonStyle(.plain)
             }
@@ -380,13 +380,19 @@ struct LaunchAtLoginToggle: View {
                 launchManager.isEnabled.toggle()
             }
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Image(systemName: launchManager.isEnabled ? "power.circle.fill" : "power.circle")
-                    .font(.system(size: 12))
-                Text("Login")
+                    .font(.system(size: 14))
+                Text("Launch at Login")
                     .font(.system(size: 11, weight: .medium))
             }
-            .foregroundColor(launchManager.isEnabled ? .accentColor : .secondary)
+            .foregroundColor(launchManager.isEnabled ? .blue : .secondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .strokeBorder(Color.blue.opacity(0.4), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
         .help(launchManager.isEnabled ? "Disable launch at login" : "Enable launch at login")
@@ -402,7 +408,7 @@ struct InfoButton: View {
         } label: {
             Image(systemName: "info.circle")
                 .font(.system(size: 14))
-                .foregroundColor(.secondary.opacity(0.6))
+                .foregroundColor(.blue)
         }
         .buttonStyle(.plain)
         .help("How to use")
