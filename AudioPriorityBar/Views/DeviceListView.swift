@@ -17,7 +17,7 @@ struct DeviceListView: View {
     @State private var draggingIndex: Int? = nil
     @State private var targetIndex: Int? = nil
     
-    private let rowHeight: CGFloat = 32
+    private let rowHeight: CGFloat = 24
 
     var body: some View {
         VStack(spacing: 4) {
@@ -196,6 +196,7 @@ struct DraggableDeviceRow: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .foregroundColor(isGrayed || isNeverUse ? .secondary : .primary)
+                    .help(device.name)
 
                 if let icon = statusIcon {
                     Image(systemName: icon)
@@ -320,7 +321,7 @@ struct DraggableDeviceRow: View {
         }
         .padding(.leading, 8)
         .padding(.trailing, 10)
-        .padding(.vertical, 5)
+        .padding(.vertical, 2)
         .opacity(isDragging ? 0.5 : (isGrayed ? 0.6 : 1.0))
         .background(
             RoundedRectangle(cornerRadius: 10)
