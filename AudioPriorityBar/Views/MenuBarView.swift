@@ -231,7 +231,7 @@ struct VolumeSliderView: View {
         HStack(spacing: 10) {
             Image(systemName: volumeIcon)
                 .font(.system(size: 13))
-                .foregroundColor(.accentColor)
+                .foregroundColor(audioManager.volumeSupported ? .accentColor : .secondary.opacity(0.5))
                 .frame(width: 20)
                 .animation(.easeInOut(duration: 0.15), value: volumeIcon)
 
@@ -243,13 +243,23 @@ struct VolumeSliderView: View {
                 in: 0...1
             )
             .controlSize(.small)
+            .disabled(!audioManager.volumeSupported)
+            .opacity(audioManager.volumeSupported ? 1 : 0.4)
 
-            Text("\(Int(audioManager.volume * 100))%")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.secondary)
-                .frame(width: 36, alignment: .trailing)
+            if audioManager.volumeSupported {
+                Text("\(Int(audioManager.volume * 100))%")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .frame(width: 36, alignment: .trailing)
+            } else {
+                Text("Fixed")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary.opacity(0.5))
+                    .frame(width: 36, alignment: .trailing)
+            }
         }
         .onScrollWheel { delta in
+            guard audioManager.volumeSupported else { return }
             let newVolume = audioManager.volume + Float(delta * 0.02)
             audioManager.setVolume(max(0, min(1, newVolume)))
         }

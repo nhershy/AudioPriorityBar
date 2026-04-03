@@ -130,6 +130,18 @@ class AudioDeviceService {
         return status == noErr ? volume : 0
     }
 
+    func deviceSupportsVolume() -> Bool {
+        guard let deviceId = getCurrentDefaultDevice(type: .output) else { return false }
+
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        return AudioObjectHasProperty(deviceId, &propertyAddress)
+    }
+
     func setOutputVolume(_ volume: Float) {
         guard let deviceId = getCurrentDefaultDevice(type: .output) else { return }
 

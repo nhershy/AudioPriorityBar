@@ -87,6 +87,7 @@ class AudioManager: ObservableObject {
     @Published var isActiveOutputMuted: Bool = false
     @Published var isActiveInputMuted: Bool = false
     @Published var micFlashState: Bool = false
+    @Published var volumeSupported: Bool = true
 
     private let deviceService = AudioDeviceService()
     private var micFlashTimer: Timer?
@@ -98,6 +99,7 @@ class AudioManager: ObservableObject {
     }
 
     func refreshVolume() {
+        volumeSupported = deviceService.deviceSupportsVolume()
         volume = deviceService.getOutputVolume()
     }
 
@@ -393,6 +395,7 @@ class AudioManager: ObservableObject {
     private func applyOutputDevice(_ device: AudioDevice) {
         deviceService.setDefaultDevice(device.id, type: .output)
         currentOutputId = device.id
+        refreshVolume()
     }
 
     private func applyHighestPriorityInput() {
