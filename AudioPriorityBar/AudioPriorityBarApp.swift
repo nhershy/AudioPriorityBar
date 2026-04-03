@@ -10,7 +10,10 @@ struct AudioPriorityBarApp: App {
             MenuBarView()
                 .environmentObject(audioManager)
         } label: {
-            Image(systemName: "speaker.wave.2.fill")
+            let image = NSImage(systemSymbolName: "waveform.badge.microphone", accessibilityDescription: "Audio Priority Bar")!
+            let config = NSImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+            let resized = image.withSymbolConfiguration(config)!
+            Image(nsImage: resized)
         }
         .menuBarExtraStyle(.window)
     }

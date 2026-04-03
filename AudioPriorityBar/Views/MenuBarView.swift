@@ -121,12 +121,15 @@ struct MenuBarView: View {
                 Button {
                     NSApplication.shared.terminate(nil)
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary.opacity(0.6))
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                        Text("Quit")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(.red)
                 }
                 .buttonStyle(.plain)
-                .help("Quit")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -231,7 +234,7 @@ struct VolumeSliderView: View {
         HStack(spacing: 10) {
             Image(systemName: volumeIcon)
                 .font(.system(size: 13))
-                .foregroundColor(audioManager.volumeSupported ? .accentColor : .secondary.opacity(0.5))
+                .foregroundColor(audioManager.volumeSupported ? .primary : .secondary.opacity(0.5))
                 .frame(width: 20)
                 .animation(.easeInOut(duration: 0.15), value: volumeIcon)
 
@@ -248,14 +251,14 @@ struct VolumeSliderView: View {
 
             if audioManager.volumeSupported {
                 Text("\(Int(audioManager.volume * 100))%")
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundColor(.secondary)
-                    .frame(width: 36, alignment: .trailing)
+                    .frame(width: 40, alignment: .trailing)
             } else {
-                Text("Fixed")
-                    .font(.system(size: 11))
+                Text("N/A")
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary.opacity(0.5))
-                    .frame(width: 36, alignment: .trailing)
+                    .frame(width: 40, alignment: .trailing)
             }
         }
         .onScrollWheel { delta in
