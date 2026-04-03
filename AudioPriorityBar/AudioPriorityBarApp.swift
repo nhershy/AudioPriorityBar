@@ -94,6 +94,7 @@ class AudioManager: ObservableObject {
 
     private let deviceService = AudioDeviceService()
     private var micFlashTimer: Timer?
+    private var deviceSettleTimer: Timer?
     let priorityManager = PriorityManager()
     private var connectedDeviceUIDs: Set<String> = []
 
@@ -434,16 +435,30 @@ class AudioManager: ObservableObject {
         let oldConnectedUIDs = previousConnectedUIDs
         refreshDevices()
         refreshMuteStatus()
-        
+
         // Detect newly connected devices
         let newlyConnectedUIDs = connectedDeviceUIDs.subtracting(oldConnectedUIDs)
         previousConnectedUIDs = connectedDeviceUIDs
-        
+
         if !isCustomMode {
             // Auto-switch mode only when a new headphone connects or all headphones disconnect
             autoSwitchModeIfNeeded(newlyConnectedUIDs: newlyConnectedUIDs)
             applyHighestPriorityInput()
             applyHighestPriorityOutput()
+
+            // Re-apply priorities after a delay to handle Bluetooth profile switches
+            // (e.g., AirPods switching from A2DP to HFP when a call starts).
+            // During the switch, devices briefly disconnect causing a wrong fallback;
+            // the delayed re-apply corrects it once the new profile settles.
+            deviceSettleTimer?.invalidate()
+            deviceSettleTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self = self, !self.isCustomMode else { return }
+                    self.refreshDevices()
+                    self.applyHighestPriorityInput()
+                    self.applyHighestPriorityOutput()
+                }
+            }
         }
     }
     
