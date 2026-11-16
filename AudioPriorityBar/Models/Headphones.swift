@@ -1,6 +1,8 @@
 import Foundation
 
-/// Keywords used to detect headphone-like devices and auto-categorize them
+/// Keywords used to recognize headphone-like devices by name.
+/// Used for the row icon and for ordering devices when migrating from the old
+/// Speakers / Headphones model. It never decides which device is used.
 struct HeadphoneDetection {
     /// Device name keywords that indicate headphones/earbuds
     static let keywords: [String] = [
@@ -11,7 +13,6 @@ struct HeadphoneDetection {
         "earbud",
         "earbuds",
         "buds",
-        "ear",
         "pods",
 
         // Apple

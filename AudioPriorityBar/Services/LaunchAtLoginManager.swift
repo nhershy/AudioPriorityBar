@@ -47,15 +47,5 @@ class LaunchAtLoginManager: ObservableObject {
             }
         }
     }
-    
-    func refresh() {
-        if #available(macOS 13.0, *) {
-            let newStatus = SMAppService.mainApp.status == .enabled
-            if newStatus != isEnabled {
-                // Update without triggering didSet
-                _isEnabled = Published(wrappedValue: newStatus)
-            }
-        }
-    }
 }
 

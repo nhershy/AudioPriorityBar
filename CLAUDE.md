@@ -12,47 +12,62 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 xcodebuild -scheme AudioPriorityBar -configuration Release -derivedDataPath .build build
 ```
 
-No test targets exist in this project.
+## Tests
+
+```bash
+# Logic tests (ranking, reordering, UID changes, migration)
+Tests/run.sh
+```
+
+There is no Xcode test target. `Tests/run.sh` compiles `Services/PriorityLogic.swift` (Foundation only) together with `Tests/PriorityLogicTests.swift` using `swiftc`. Keep `PriorityLogic.swift` free of CoreAudio, SwiftUI and UserDefaults so this keeps working.
+
+New source files must be added to `AudioPriorityBar.xcodeproj/project.pbxproj` by hand (explicit file references, hand-numbered IDs).
 
 ## Architecture
 
-Audio Priority Bar is a macOS menu bar utility (SwiftUI, macOS 13+) that auto-switches audio devices based on user-defined priority. It runs as a `MenuBarExtra` with `LSUIElement: true` (no dock icon).
+Audio Priority Bar is a macOS menu bar utility (SwiftUI, macOS 13+) that keeps the system default audio devices on the highest-ranked connected device. It runs as a `MenuBarExtra` with `LSUIElement: true` (no dock icon).
 
 ### Core Data Flow
 
 ```
-CoreAudio device/volume/mute events
+CoreAudio device/default/volume/mute events
   → AudioDeviceService (listeners + CoreAudio API wrapper)
     → AudioManager (@StateObject, central state)
+      → PriorityManager / PriorityLogic (which device should be in use)
       → @Published properties
         → SwiftUI Views re-render
 ```
 
 ### Key Components
 
-- **`AudioPriorityBarApp.swift`** — App entry point, contains `AudioManager` (the central ObservableObject), `MenuBarLabel`, and `VolumeMeterView`. This is the largest file and holds most business logic.
-- **`AudioDeviceService.swift`** — CoreAudio wrapper: device enumeration, default device get/set, volume control, and change listeners via `AudioObjectPropertyListenerBlock`.
-- **`PriorityManager.swift`** — UserDefaults persistence for priority lists, known devices, device categories, mode state, hidden/never-use devices.
-- **`HeadphoneDetection.swift`** — Keyword-based auto-categorization of devices as headphones (100+ brand keywords).
-- **`LaunchAtLoginManager.swift`** — `SMAppService` integration for launch-at-login.
+- **`AudioPriorityBarApp.swift`** — App entry point and the menu bar icon.
+- **`Services/AudioManager.swift`** — The central `ObservableObject`. Builds the lists the UI shows and, in `enforcePriorities()`, sets the system default input/output. Takes its `AudioDeviceService` and `PriorityManager` as init parameters so both can be replaced.
+- **`Services/AudioDeviceService.swift`** — CoreAudio wrapper: device enumeration, default device get/set, volume, mute, transport type, and change listeners via `AudioObjectPropertyListenerBlock`.
+- **`Services/PriorityManager.swift`** — UserDefaults persistence (in-memory state, written on every change): ranked order per direction, ignored devices, known devices, auto-switch flag. Runs the one-time migration from the old schema.
+- **`Services/PriorityLogic.swift`** — Pure functions: `mergeReorder`, `pickTarget`, `adoptStaleUIDs`, `migrateV1`. Also defines `StoredDevice`.
+- **`Models/Headphones.swift`** — Headphone name keywords. Only used for row icons and migration ordering; it never decides which device is used.
+- **`Services/LaunchAtLoginManager.swift`** — `SMAppService` integration for launch-at-login.
 
 ### Views
 
-- **`MenuBarView.swift`** — Main popover: mode toggle, volume slider, device sections.
-- **`DeviceListView.swift`** — Draggable device rows with reorder, category assignment, and context menus.
+- **`MenuBarView.swift`** — Main popover: Auto-switch toggle, volume slider, Output and Input sections, footer ("not connected · ignored" disclosure, info, gear menu).
+- **`DeviceListView.swift`** — Device rows, drag-to-reorder, and the row menu (Ignore / Stop Ignoring / Forget).
 
-### Mode System
+### Behavior
 
-Three modes control auto-switching behavior:
-- **Speaker mode** — shows/auto-switches among speaker-categorized devices
-- **Headphone mode** — shows/auto-switches among headphone-categorized devices  
-- **Custom mode** — shows all devices, disables auto-switching
-
-Connecting a headphone auto-switches to headphone mode; disconnecting all headphones reverts to speaker mode.
+- Two ranked lists, Output and Input. There are no speaker/headphone modes.
+- **Auto-switch on**: the highest-ranked connected, non-ignored device of each list is enforced on every device or default-device change, 1.5s after the last change (Bluetooth profile switches), and on wake. Clicking a row does nothing; outside changes are reverted. Both were explicit product decisions.
+- **Auto-switch off**: nothing is enforced; clicking a row selects it.
+- New devices are appended to the bottom of their list.
+- Reordering goes through `PriorityLogic.mergeReorder`, so devices that are not shown (disconnected or ignored) keep their rank.
 
 ### Persistence
 
-All state stored in UserDefaults keyed by device UID. Separate priority lists for inputs, speakers, and headphones. Devices are remembered with "last seen" timestamps even when disconnected.
+UserDefaults, schema version 2 (`schemaVersion`). Keys: `devices` (JSON `[StoredDevice]`, keyed by UID + direction), `inputOrder`, `outputOrder`, `ignoredInputs`, `ignoredOutputs`, `autoSwitchEnabled`.
+
+The earlier schema (`knownDevices`, `inputPriorities`, `speakerPriorities`, `headphonePriorities`, `deviceCategories`, `hiddenMics`, `hiddenSpeakers`, `hiddenHeadphones`, `neverUseDevices`, `currentMode`, `customMode`) is read once by the migration and never modified.
+
+Row identity in SwiftUI lists must be the device UID: every disconnected device has `AudioObjectID` 0.
 
 ## Bundle Info
 

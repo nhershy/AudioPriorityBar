@@ -11,6 +11,22 @@ class AudioDeviceService {
     private var monitoredDeviceIds: Set<AudioObjectID> = []
 
     func getDevices() -> [AudioDevice] {
+        var devices: [AudioDevice] = []
+
+        for deviceId in allDeviceIDs() {
+            if let inputDevice = createDevice(id: deviceId, type: .input) {
+                devices.append(inputDevice)
+            }
+            if let outputDevice = createDevice(id: deviceId, type: .output) {
+                devices.append(outputDevice)
+            }
+        }
+
+        return devices
+    }
+
+    /// Object IDs of every audio device the system currently knows about.
+    private func allDeviceIDs() -> [AudioObjectID] {
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -42,18 +58,8 @@ class AudioDeviceService {
 
         guard status == noErr else { return [] }
 
-        var devices: [AudioDevice] = []
-
-        for deviceId in deviceIds {
-            if let inputDevice = createDevice(id: deviceId, type: .input) {
-                devices.append(inputDevice)
-            }
-            if let outputDevice = createDevice(id: deviceId, type: .output) {
-                devices.append(outputDevice)
-            }
-        }
-
-        return devices
+        // The list can shrink between the two calls.
+        return Array(deviceIds.prefix(Int(dataSize) / MemoryLayout<AudioObjectID>.size))
     }
 
     func getCurrentDefaultDevice(type: AudioDeviceType) -> AudioObjectID? {
@@ -82,7 +88,9 @@ class AudioDeviceService {
         return status == noErr ? deviceId : nil
     }
 
-    func setDefaultDevice(_ deviceId: AudioObjectID, type: AudioDeviceType) {
+    /// Makes `deviceId` the system default for its direction. Returns false if CoreAudio refused.
+    @discardableResult
+    func setDefaultDevice(_ deviceId: AudioObjectID, type: AudioDeviceType) -> Bool {
         let selector: AudioObjectPropertySelector = type == .input
             ? kAudioHardwarePropertyDefaultInputDevice
             : kAudioHardwarePropertyDefaultOutputDevice
@@ -96,7 +104,7 @@ class AudioDeviceService {
         var mutableDeviceId = deviceId
         let dataSize = UInt32(MemoryLayout<AudioObjectID>.size)
 
-        AudioObjectSetPropertyData(
+        let status = AudioObjectSetPropertyData(
             AudioObjectID(kAudioObjectSystemObject),
             &propertyAddress,
             0,
@@ -104,6 +112,11 @@ class AudioDeviceService {
             dataSize,
             &mutableDeviceId
         )
+
+        if status != noErr {
+            NSLog("[AudioPriorityBar] Could not set default %@ device to %u (OSStatus %d)", type.rawValue, deviceId, status)
+        }
+        return status == noErr
     }
 
     func getOutputVolume() -> Float {
@@ -298,40 +311,8 @@ class AudioDeviceService {
             self?.onMuteOrVolumeChanged?()
         }
 
-        // Get all current device IDs
-        var propertyAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDevices,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-
-        var dataSize: UInt32 = 0
-        var status = AudioObjectGetPropertyDataSize(
-            AudioObjectID(kAudioObjectSystemObject),
-            &propertyAddress,
-            0,
-            nil,
-            &dataSize
-        )
-
-        guard status == noErr else { return }
-
-        let deviceCount = Int(dataSize) / MemoryLayout<AudioObjectID>.size
-        var deviceIds = [AudioObjectID](repeating: 0, count: deviceCount)
-
-        status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject),
-            &propertyAddress,
-            0,
-            nil,
-            &dataSize,
-            &deviceIds
-        )
-
-        guard status == noErr else { return }
-
         // Register listeners for each device
-        for deviceId in deviceIds {
+        for deviceId in allDeviceIDs() {
             // Listen to mute on output scope
             var muteAddress = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyMute,
@@ -454,7 +435,30 @@ class AudioDeviceService {
         guard let name = getDeviceName(id: id) else { return nil }
         guard let uid = getDeviceUID(id: id) else { return nil }
 
-        return AudioDevice(id: id, uid: uid, name: name, type: type)
+        return AudioDevice(id: id, uid: uid, name: name, type: type, transportType: getTransportType(id: id))
+    }
+
+    /// How the device is attached (built-in, Bluetooth, USB, HDMI, ...). 0 if unknown.
+    private func getTransportType(id: AudioObjectID) -> UInt32 {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var transport: UInt32 = 0
+        var dataSize = UInt32(MemoryLayout<UInt32>.size)
+
+        let status = AudioObjectGetPropertyData(
+            id,
+            &propertyAddress,
+            0,
+            nil,
+            &dataSize,
+            &transport
+        )
+
+        return status == noErr ? transport : 0
     }
 
     private func hasStreams(deviceId: AudioObjectID, scope: AudioObjectPropertyScope) -> Bool {
