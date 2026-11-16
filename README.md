@@ -30,7 +30,7 @@ A native macOS menu bar app that keeps your Mac on the audio devices you prefer.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/tobi/AudioPriorityBar.git
+   git clone https://github.com/nhershy/AudioPriorityBar.git
    cd AudioPriorityBar
    ```
 
@@ -39,12 +39,12 @@ A native macOS menu bar app that keeps your Mac on the audio devices you prefer.
    ./build.sh
    ```
 
-3. The app will be at `dist/AudioPriorityBar.app`
+3. The app will be at `dist/AudioPriorityBar.app`. Copy it to your Applications folder:
+   ```bash
+   ditto dist/AudioPriorityBar.app /Applications/AudioPriorityBar.app
+   ```
 
 Or open `AudioPriorityBar.xcodeproj` in Xcode and build with ⌘R.
-
-### Download Release
-Check the [Releases](https://github.com/tobi/AudioPriorityBar/releases) page for pre-built binaries.
 
 ## Usage
 
